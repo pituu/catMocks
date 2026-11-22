@@ -1,0 +1,160 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repository Explorer</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f9;
+    margin: 0;
+    padding: 35px 20px;
+    color: #222;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+}
+
+h1 { margin-bottom: 8px; }
+
+#search {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+    margin: 20px 0;
+    font-size: 15px;
+}
+
+.file-list {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.item {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+    gap: 10px;
+}
+
+.item a {
+    text-decoration: none;
+    color: #2563eb;
+}
+
+.item a:hover { text-decoration: underline; }
+
+.meta {
+    color: #888;
+    font-size: 12px;
+}
+
+#status {
+    color: #777;
+    margin: 15px 0;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>📁 Repository Explorer</h1>
+<p>Automatically listing repository files and folders.</p>
+
+<input id="search" placeholder="Search files..." oninput="renderFiles()">
+
+<div id="status">Loading files...</div>
+<div class="file-list" id="fileList"></div>
+
+</div>
+
+<script>
+const USERNAME = "pituu";
+const REPOSITORY = "catMocks";
+const BRANCH = "main";
+
+let files = [];
+
+async function loadFiles() {
+    const api = `https://api.github.com/repos/${USERNAME}/${REPOSITORY}/git/trees/${BRANCH}?recursive=1`;
+
+    try {
+        const response = await fetch(api);
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.truncated) {
+            throw new Error("Repository is too large for a complete recursive listing.");
+        }
+
+        files = data.tree.filter(item =>
+            item.type === "blob" || item.type === "tree"
+        );
+
+        document.getElementById("status").textContent =
+            `${files.length} files and folders found`;
+
+        renderFiles();
+
+    } catch (error) {
+        document.getElementById("status").textContent =
+            "Error: " + error.message;
+    }
+}
+
+function renderFiles() {
+    const query = document.getElementById("search").value.toLowerCase();
+
+    const filtered = files.filter(item =>
+        item.path.toLowerCase().includes(query)
+    );
+
+    const baseURL = `https://${USERNAME}.github.io/${REPOSITORY}/`;
+
+    document.getElementById("fileList").innerHTML =
+        filtered.map(item => {
+            const isFolder = item.type === "tree";
+            const name = item.path.split("/").pop();
+
+            const href = isFolder
+                ? baseURL + item.path + "/"
+                : baseURL + item.path.split("/").map(encodeURIComponent).join("/");
+
+            return `
+                <div class="item">
+                    <a href="${href}" target="_blank">
+                        ${isFolder ? "📁" : "📄"} ${item.path}
+                    </a>
+                    <span class="meta">
+                        ${isFolder ? "Folder" : "File"}
+                    </span>
+                </div>
+            `;
+        }).join("");
+
+    if (filtered.length === 0) {
+        document.getElementById("fileList").innerHTML =
+            '<div class="item">No matching files found.</div>';
+    }
+}
+
+loadFiles();
+</script>
+
+</body>
+</html>
+```
